@@ -525,6 +525,8 @@ static struct istat_s initblstats[MAXBLSTATS] = {
     INIT_BLSTAT("gold", " %s", ANY_LONG, 30, BL_GOLD),
     INIT_BLSTATP("power", " Pw:%s", ANY_INT, 10, BL_ENEMAX, BL_ENE),
     INIT_BLSTAT("power-max", "(%s)", ANY_INT, 10, BL_ENEMAX),
+    INIT_BLSTATP("weight", " Wt:%s", ANY_INT, 10, BL_WTMAX, BL_WT),
+    INIT_BLSTAT("weight-max", "(%s)", ANY_INT, 10, BL_WTMAX),
     INIT_BLSTATP("experience-level", " Xp:%s", ANY_INT, 10, BL_EXP, BL_XP),
     INIT_BLSTAT("armor-class", " AC:%s", ANY_INT, 10, BL_AC),
     INIT_BLSTAT("HD", " HD:%s", ANY_INT, 10, BL_HD),
@@ -693,8 +695,11 @@ bot_via_windowport()
     char buf[BUFSZ];
     const char *titl;
     register char *nb;
-    int i, idx, cap;
+    int i, idx, cap, wtcap, invwt;
     long money;
+
+    wtcap = weight_cap();
+    invwt = inv_weight();
 
     if (!g.blinit)
         panic("bot before init.");
@@ -808,6 +813,10 @@ bot_via_windowport()
 
     /* Monster level (if Upolyd) */
     g.blstats[idx][BL_HD].a.a_int = Upolyd ? (int) mons[u.umonnum].mlevel : 0;
+
+    /* Carry/max weight */
+    g.blstats[idx][BL_WT].a.a_int = invwt + wtcap;
+    g.blstats[idx][BL_WTMAX].a.a_int = wtcap;
 
     /* Experience */
     g.blstats[idx][BL_XP].a.a_int = u.ulevel;
@@ -1257,6 +1266,7 @@ boolean *valsetlist;
      */
     for (i = 0; i < MAXBLSTATS; i++) {
         if (((i == BL_SCORE) && !flags.showscore)
+            || ((i == BL_WT || i == BL_WTMAX) && !iflags.invweight)
             || ((i == BL_EXP) && !flags.showexp)
             || ((i == BL_TIME) && !flags.time)
             || ((i == BL_HD) && !Upolyd)
@@ -1323,11 +1333,12 @@ boolean reassessment; /* TRUE: just recheck fields w/o other initialization */
     for (i = 0; i < MAXBLSTATS; ++i) {
         fld = initblstats[i].fld;
         fldenabl = (fld == BL_SCORE) ? flags.showscore
-                   : (fld == BL_TIME) ? flags.time
-                     : (fld == BL_EXP) ? (boolean) (flags.showexp && !Upolyd)
-                       : (fld == BL_XP) ? (boolean) !Upolyd
-                         : (fld == BL_HD) ? (boolean) Upolyd
-                           : TRUE;
+                   : (fld == BL_WT || fld == BL_WTMAX) ? iflags.invweight
+                       : (fld == BL_TIME) ? flags.time
+                         : (fld == BL_EXP) ? (boolean) (flags.showexp && !Upolyd)
+                           : (fld == BL_XP) ? (boolean) !Upolyd
+                             : (fld == BL_HD) ? (boolean) Upolyd
+                               : TRUE;
 
         fieldname = initblstats[i].fldname;
         fieldfmt = (fld == BL_TITLE && iflags.wc2_hitpointbar) ? "%-30.30s"
@@ -1791,6 +1802,8 @@ static struct fieldid_t {
     { "cap",      BL_CAP },
     { "pw",       BL_ENE },
     { "pw-max",   BL_ENEMAX },
+    { "wt",       BL_WT },
+    { "wt-max",   BL_WTMAX },
     { "xl",       BL_XP },
     { "xplvl",    BL_XP },
     { "ac",       BL_AC },

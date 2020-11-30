@@ -251,33 +251,35 @@ boolean border;
     /* almost all fields already come with a leading space;
        "xspace" indicates places where we'll generate an extra one */
     static const enum statusfields
-    twolineorder[3][15] = {
+    twolineorder[3][17] = {
         { BL_TITLE,
           /*xspace*/ BL_STR, BL_DX, BL_CO, BL_IN, BL_WI, BL_CH,
           /*xspace*/ BL_ALIGN,
           /*xspace*/ BL_SCORE,
-          BL_FLUSH, blPAD, blPAD, blPAD, blPAD, blPAD },
+          BL_FLUSH, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD },
         { BL_LEVELDESC,
           /*xspace*/ BL_GOLD,
           /*xspace*/ BL_HP, BL_HPMAX,
           /*xspace*/ BL_ENE, BL_ENEMAX,
           /*xspace*/ BL_AC,
+          /*xspace*/ BL_WT, BL_WTMAX,
           /*xspace*/ BL_XP, BL_EXP, BL_HD,
           /*xspace*/ BL_TIME,
           /*xspace*/ BL_HUNGER, BL_CAP, BL_CONDITION,
           BL_FLUSH },
         { BL_FLUSH, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD,
-          blPAD, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD }
+          blPAD, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD }
     },
-    threelineorder[3][15] = { /* moves align to line 2, leveldesc+ to 3 */
+    threelineorder[3][17] = { /* moves align to line 2, leveldesc+ to 3 */
         { BL_TITLE,
           /*xspace*/ BL_STR, BL_DX, BL_CO, BL_IN, BL_WI, BL_CH,
           /*xspace*/ BL_SCORE,
-          BL_FLUSH, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD },
+          BL_FLUSH, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD },
         { BL_ALIGN,
           /*xspace*/ BL_GOLD,
           /*xspace*/ BL_HP, BL_HPMAX,
           /*xspace*/ BL_ENE, BL_ENEMAX,
+          /*xspace*/ BL_WT, BL_WTMAX,
           /*xspace*/ BL_AC,
           /*xspace*/ BL_XP, BL_EXP, BL_HD,
           /*xspace*/ BL_HUNGER, BL_CAP,
@@ -286,9 +288,9 @@ boolean border;
           /*xspace*/ BL_TIME,
           /*xspecial*/ BL_CONDITION,
           BL_FLUSH, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD, blPAD,
-          blPAD, blPAD, blPAD, blPAD }
+          blPAD, blPAD, blPAD, blPAD, blPAD, blPAD }
     };
-    const enum statusfields (*fieldorder)[15];
+    const enum statusfields (*fieldorder)[17];
     xchar spacing[MAXBLSTATS], valline[MAXBLSTATS];
     enum statusfields fld, prev_fld;
     char *text, *p, cbuf[BUFSZ], ebuf[STATVAL_WIDTH];
@@ -297,7 +299,7 @@ boolean border;
     char sbuf[STATVAL_WIDTH];
 #endif
     int i, j, number_of_lines,
-        cap_and_hunger, exp_points, sho_score,
+        cap_and_hunger, exp_points, sho_score, sho_weight,
         height, width, w, xtra, clen, x, y, t, ex, ey,
         condstart = 0, conddummy = 0;
 #ifdef STATUS_HILITES
@@ -346,6 +348,7 @@ boolean border;
     exp_points = (flags.showexp ? 1 : 0);
     /* don't bother conditionalizing this; always 0 for !SCORE_ON_BOTL */
     sho_score = (status_activefields[BL_SCORE] != 0);
+    sho_weight = (iflags.invweight ? 1 : 0);
 
     /* simplify testing which fields reside on which lines; assume line #0 */
     (void) memset((genericptr_t) valline, 0, sizeof valline);
@@ -382,6 +385,11 @@ boolean border;
             case BL_ENEMAX:
                 spacing[fld] = 0; /* no leading or extra space */
                 break;
+            case BL_WT:
+                spacing[fld] = sho_weight ? 1 : 0;
+                break;
+            case BL_WTMAX:
+                spacing[fld] = 0;
             case BL_DX:
             case BL_CO:
             case BL_IN:
@@ -500,6 +508,11 @@ boolean border;
                 ++text; /* for first field of line, discard leading space */
 
             switch (fld) {
+            case BL_WT:
+            case BL_WTMAX:
+                if (!sho_weight)
+                    continue;
+                break;
             case BL_EXP:
                 /* might be 'active' but suppressed due to lack of room */
                 if (!exp_points)

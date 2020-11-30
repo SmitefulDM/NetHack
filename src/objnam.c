@@ -932,8 +932,9 @@ struct obj *obj;
     return FALSE;
 }
 
-#define DONAME_WITH_PRICE 1
-#define DONAME_VAGUE_QUAN 2
+#define DONAME_WITH_PRICE  1
+#define DONAME_VAGUE_QUAN  2
+#define DONAME_WITH_WEIGHT 3
 
 static char *
 doname_base(obj, doname_flags)
@@ -942,7 +943,8 @@ unsigned doname_flags;
 {
     boolean ispoisoned = FALSE,
             with_price = (doname_flags & DONAME_WITH_PRICE) != 0,
-            vague_quan = (doname_flags & DONAME_VAGUE_QUAN) != 0;
+            vague_quan = (doname_flags & DONAME_VAGUE_QUAN) != 0,
+            with_weight = (doname_flags & DONAME_WITH_WEIGHT) != 0;
     boolean known, dknown, cknown, bknown, lknown;
     int omndx = obj->corpsenm;
     char prefix[PREFIX];
@@ -1298,12 +1300,26 @@ unsigned doname_flags;
 
     /* show weight for items (debug tourist info);
        "aum" is stolen from Crawl's "Arbitrary Unit of Measure" */
-    if (wizard && iflags.wizweight) {
-        /* wizard mode user has asked to see object weights */
-        if (with_price && (*(eos(bp)-1) == ')'))
-            Sprintf(eos(bp)-1, ", %u aum)", obj->owt);
-        else
-            Sprintf(eos(bp), " (%u aum)", obj->owt);
+    if (with_weight && ((wizard && iflags.wizweight) || iflags.invweight)) {
+        if (flags.showlbs) {
+            double lbs = (double) obj->owt / 9.;
+            if (lbs == (unsigned) lbs) {
+                if (with_price && (*(eos(bp)-1) == ')'))
+                    Sprintf(eos(bp)-1, ", %u lbs)", (unsigned) lbs);
+                else
+                    Sprintf(eos(bp), " (%u lbs)", (unsigned) lbs);
+            } else {
+                if (with_price && (*(eos(bp)-1) == ')'))
+                    Sprintf(eos(bp)-1, ", %.1f lbs)", lbs);
+                else
+                    Sprintf(eos(bp), " (%.1f lbs)", lbs);
+            }
+        } else {
+            if (with_price && (*(eos(bp)-1) == ')'))
+                Sprintf(eos(bp)-1, ", %u aum)", obj->owt);
+            else
+                Sprintf(eos(bp), " (%u aum)", obj->owt);
+        }
     }
     bp = strprepend(bp, prefix);
     return bp;
@@ -1342,6 +1358,14 @@ struct obj *obj;
      * items; it could overlay obj->cknown since no containers stack.
      */
     return doname_base(obj, DONAME_VAGUE_QUAN);
+}
+
+/* Name of object including weight. */
+char *
+doname_with_weight(obj)
+    struct obj *obj;
+{
+    return doname_base(obj, DONAME_WITH_WEIGHT);
 }
 
 /* used from invent.c */

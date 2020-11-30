@@ -54,6 +54,7 @@ struct flag {
     boolean safe_dog;        /* give complete protection to the dog */
     boolean safe_wait;       /* prevent wait or search next to hostile */
     boolean showexp;         /* show experience points */
+    boolean showlbs;         /* display weight in pounds (if `invweight` is enabled) */
     boolean showscore;       /* show score */
     boolean silent;          /* whether the bell rings or not */
     boolean sortpack;        /* sorted inventory */
@@ -294,6 +295,7 @@ struct instance_flags {
     boolean cmdassist;       /* provide detailed assistance for some comnds */
     boolean time_botl;       /* context.botl for 'time' (moves) only */
     boolean wizweight;       /* display weight of everything in wizard mode */
+    boolean invweight;       /* display inventory weight */
     /*
      * Window capability support.
      */

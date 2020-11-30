@@ -2527,8 +2527,13 @@ long quan;       /* if non-0, print this quantity, not obj->quan */
     boolean use_invlet = (flags.invlet_constant
                           && let != CONTAINED_SYM && let != HANDS_SYM);
     long savequan = 0;
+    long saveowt = 0;
 
     if (quan && obj) {
+        if (iflags.invweight) {
+            saveowt = obj->owt;
+            obj->owt = obj->owt * quan / obj->quan;
+        }
         savequan = obj->quan;
         obj->quan = quan;
     }
@@ -2550,8 +2555,12 @@ long quan;       /* if non-0, print this quantity, not obj->quan */
         Sprintf(li, "%c - %s%s", (use_invlet ? obj->invlet : let),
                 (txt ? txt : doname(obj)), (dot ? "." : ""));
     }
-    if (savequan)
+    if (savequan) {
+        if (saveowt) {
+            obj->owt = saveowt;
+        }
         obj->quan = savequan;
+    }
 
     return li;
 }
@@ -2776,7 +2785,8 @@ long *out_cnt;
                 any.a_char = ilet;
             add_menu(win, obj_to_glyph(otmp, rn2_on_display_rng), &any, ilet,
                      wizid ? def_oc_syms[(int) otmp->oclass].sym : 0,
-                     ATR_NONE, doname(otmp), MENU_ITEMFLAGS_NONE);
+                     ATR_NONE, win == WIN_INVEN ? doname_with_weight(otmp)
+                                                : doname(otmp), MENU_ITEMFLAGS_NONE);
             gotsomething = TRUE;
         }
     }
@@ -3571,7 +3581,7 @@ unsigned lookhere_flags;
         if (dfeature && !skip_dfeature)
             pline1(fbuf);
         read_engr_at(u.ux, u.uy); /* Eric Backus */
-        You("%s here %s.", verb, doname_with_price(otmp));
+        You("%s here %s.", verb, doname(otmp));
         iflags.last_msg = PLNMSG_ONE_ITEM_HERE;
         if (otmp->otyp == CORPSE)
             feel_cockatrice(otmp, FALSE);

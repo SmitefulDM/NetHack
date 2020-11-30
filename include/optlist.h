@@ -228,6 +228,8 @@ pfx_##a,
 #endif
     NHOPTB(implicit_uncursed, 0, opt_out, set_in_game, On, Yes, No, No, NoAlias,
                 &flags.implicit_uncursed)
+    NHOPTB(invweight, 0, opt_in, set_in_game, Off, Yes, No, No, NoAlias,
+                &iflags.invweight)
     NHOPTB(large_font, 0, opt_in, set_in_config, Off, Yes, No, No, NoAlias,
                 &iflags.obsolete)
     NHOPTB(legacy, 0, opt_out, set_in_config, On, Yes, No, No, NoAlias,
@@ -393,6 +395,8 @@ pfx_##a,
                 &iflags.wc2_selectsaved)
     NHOPTB(showexp, 0, opt_in, set_in_game, Off, Yes, No, No, NoAlias,
                 &flags.showexp)
+    NHOPTB(showlbs, 0, opt_in, set_in_game, Off, Yes, No, No, NoAlias,
+           &flags.showlbs)
     NHOPTB(showrace, 0, opt_in, set_in_game, Off, Yes, No, No, NoAlias,
                 &flags.showrace)
 #ifdef SCORE_ON_BOTL
