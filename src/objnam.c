@@ -960,7 +960,7 @@ struct obj *obj;
 
 #define DONAME_WITH_PRICE  1
 #define DONAME_VAGUE_QUAN  2
-#define DONAME_WITH_WEIGHT 3
+#define DONAME_WITH_WEIGHT 4
 
 static char *
 doname_base(obj, doname_flags)
