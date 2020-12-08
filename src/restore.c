@@ -1,4 +1,4 @@
-/* NetHack 3.7	restore.c	$NHDT-Date: 1605305492 2020/11/13 22:11:32 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.171 $ */
+/* NetHack 3.7	restore.c	$NHDT-Date: 1606765214 2020/11/30 19:40:14 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.173 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Michael Allison, 2009. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -643,9 +643,9 @@ unsigned int *stuckid, *steedid;
     while (bc_obj) {
         struct obj *nobj = bc_obj->nobj;
 
+        bc_obj->nobj = (struct obj *) 0;
         if (bc_obj->owornmask)
             setworn(bc_obj, bc_obj->owornmask);
-        bc_obj->nobj = (struct obj *) 0;
         bc_obj = nobj;
     }
     g.migrating_objs = restobjchn(nhfp, FALSE);
@@ -771,7 +771,7 @@ NHFILE *nhfp;
     int rtmp;
     struct obj *otmp;
 
-    g.restoring = TRUE;
+    g.program_state.restoring = 1;
     get_plname_from_file(nhfp, g.plname);
     getlev(nhfp, 0, (xchar) 0);
     if (!restgamestate(nhfp, &stuckid, &steedid)) {
@@ -786,7 +786,7 @@ NHFILE *nhfp;
            is not really affiliated with an open file */
         close_nhfile(nhfp);
         (void) delete_savefile();
-        g.restoring = FALSE;
+        g.program_state.restoring = 0;
         return 0;
     }
     restlevelstate(stuckid, steedid);
@@ -895,8 +895,8 @@ NHFILE *nhfp;
     g.vision_full_recalc = 1; /* recompute vision (not saved) */
 
     run_timers(); /* expire all timers that have gone off while away */
+    g.program_state.restoring = 0; /* affects bot() so clear before docrt() */
     docrt();
-    g.restoring = FALSE;
     clear_nhwindow(WIN_MESSAGE);
 
     /* Success! */
@@ -923,11 +923,14 @@ NHFILE *nhfp;
         if (buflen == -1)
             break;
 
+        len += (int) sizeof (stairway);
         if (nhfp->structlevel) {
-            len += (int) sizeof (stairway);
             mread(nhfp->fd, (genericptr_t) &stway, sizeof (stairway));
         }
-
+        if (stway.tolev.dnum == u.uz.dnum) {
+            /* stairway dlevel is relative, make it absolute */
+            stway.tolev.dlevel += u.uz.dlevel;
+        }
         stairway_add(stway.sx, stway.sy, stway.up, stway.isladder,
                      &(stway.tolev));
     }
@@ -1128,6 +1131,8 @@ xchar lev;
         place_monster(mtmp, mtmp->mx, mtmp->my);
         if (mtmp->wormno)
             place_wsegs(mtmp, NULL);
+        if (hides_under(mtmp->data) && mtmp->mundetected)
+            (void) hideunder(mtmp);
 
         /* regenerate monsters while on another level */
         if (!u.uz.dlevel)

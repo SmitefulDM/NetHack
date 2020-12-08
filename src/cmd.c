@@ -1,4 +1,4 @@
-/* NetHack 3.7	cmd.c	$NHDT-Date: 1605779800 2020/11/19 09:56:40 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.425 $ */
+/* NetHack 3.7	cmd.c	$NHDT-Date: 1607339290 2020/12/07 11:08:10 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.428 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2013. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -186,8 +186,7 @@ static int FDECL(ch2spkeys, (CHAR_P, int, int));
 static boolean FDECL(prefix_cmd, (CHAR_P));
 
 static int NDECL((*timed_occ_fn));
-static char *FDECL(doc_extcmd_flagstr, (winid, const struct ext_func_tab *,
-                                        BOOLEAN_P));
+static char *FDECL(doc_extcmd_flagstr, (winid, const struct ext_func_tab *));
 
 static const char *readchar_queue = "";
 /* for rejecting attempts to use wizard mode commands */
@@ -340,34 +339,43 @@ doextcmd(VOID_ARGS)
     return retval;
 }
 
+/* format extended command flags for display */
 static char *
-doc_extcmd_flagstr(menuwin, efp, doc)
+doc_extcmd_flagstr(menuwin, efp)
 winid menuwin;
-const struct ext_func_tab *efp;
-boolean doc;
+const struct ext_func_tab *efp; /* if Null, add a footnote to the menu */
 {
-    static char buf[BUFSZ];
+    static char Abuf[10]; /* 5 would suffice: {'[','m','A',']','\0'} */
 
-    if (doc) {
+    /* note: tag shown for menu prefix is 'm' even if m-prefix action
+       has been bound to some other key */
+    if (!efp) {
+        char qbuf[QBUFSZ];
         anything any = cg.zeroany;
 
         add_menu(menuwin, NO_GLYPH, &any, 0, 0, ATR_NONE,
                  "[A] Command autocompletes", MENU_ITEMFLAGS_NONE);
-        Sprintf(buf, "[m] Command accepts '%c' prefix",
+        Sprintf(qbuf, "[m] Command accepts '%c' prefix",
                 g.Cmd.spkeys[NHKF_REQMENU]);
-        add_menu(menuwin, NO_GLYPH, &any, 0, 0, ATR_NONE, buf,
+        add_menu(menuwin, NO_GLYPH, &any, 0, 0, ATR_NONE, qbuf,
                  MENU_ITEMFLAGS_NONE);
         return (char *) 0;
     } else {
-        buf[0] = '\0';
-        Sprintf(&buf[1], "%s%s",
-                (efp->flags & AUTOCOMPLETE) ? "A" : "",
-                accept_menu_prefix(efp->ef_funct) ? "m" : "");
-        if (buf[1]) {
-            buf[0] = '[';
-            Strcat(buf, "]");
+        boolean mprefix = accept_menu_prefix(efp->ef_funct),
+                autocomplete = (efp->flags & AUTOCOMPLETE) != 0;
+        char *p = Abuf;
+
+        /* "" or "[m]" or "[A]" or "[mA]" */
+        if (mprefix || autocomplete) {
+            *p++ = '[';
+            if (mprefix)
+                *p++ = 'm';
+            if (autocomplete)
+                *p++ = 'A';
+            *p++ = ']';
         }
-        return buf;
+        *p = '\0';
+        return Abuf;
     }
 }
 
@@ -400,10 +408,8 @@ doextlist(VOID_ARGS)
         add_menu(menuwin, NO_GLYPH, &any, 0, 0, ATR_NONE,
                  "", MENU_ITEMFLAGS_NONE);
 
-        Strcpy(buf, menumode ? "Show" : "Hide");
-        Strcat(buf, " commands that don't autocomplete");
-        if (!menumode)
-            Strcat(buf, " (those not marked with [A])");
+        Sprintf(buf, "Switch to %s commands that don't autocomplete",
+                menumode ? "including" : "excluding");
         any.a_int = 1;
         add_menu(menuwin, NO_GLYPH, &any, 'a', 0, ATR_NONE, buf,
                  MENU_ITEMFLAGS_NONE);
@@ -419,7 +425,7 @@ doextlist(VOID_ARGS)
                      "Search extended commands",
                      MENU_ITEMFLAGS_NONE);
         } else {
-            Strcpy(buf, "Show all, clear search");
+            Strcpy(buf, "Switch back from search");
             if (strlen(buf) + strlen(searchbuf) + strlen(" (\"\")") < QBUFSZ)
                 Sprintf(eos(buf), " (\"%s\")", searchbuf);
             any.a_int = 3;
@@ -434,8 +440,8 @@ doextlist(VOID_ARGS)
         if (wizard) {
             any.a_int = 4;
             add_menu(menuwin, NO_GLYPH, &any, 'z', 0, ATR_NONE,
-                     onelist ? "Show debugging commands in separate section"
-                    : "Show all alphabetically, including debugging commands",
+          onelist ? "Switch to showing debugging commands in separate section"
+       : "Switch to showing all alphabetically, including debugging commands",
                      MENU_ITEMFLAGS_NONE);
         }
         any = cg.zeroany;
@@ -486,10 +492,10 @@ doextlist(VOID_ARGS)
                              MENU_ITEMFLAGS_NONE);
                     menushown[pass] = 1;
                 }
-                Sprintf(buf, " %-14s %-4s %s",
-                        efp->ef_txt,
-                        doc_extcmd_flagstr(menuwin, efp, FALSE),
-                        efp->ef_desc);
+                /* longest ef_txt at present is "wizrumorcheck" (13 chars);
+                   2nd field will be "    " or " [A]" or " [m]" or "[mA]" */
+                Sprintf(buf, " %-14s %4s %s", efp->ef_txt,
+                        doc_extcmd_flagstr(menuwin, efp), efp->ef_desc);
                 add_menu(menuwin, NO_GLYPH, &any, 0, 0, ATR_NONE,
                          buf, MENU_ITEMFLAGS_NONE);
                 ++n;
@@ -502,7 +508,7 @@ doextlist(VOID_ARGS)
             add_menu(menuwin, NO_GLYPH, &any, 0, 0, ATR_NONE,
                      "no matches", MENU_ITEMFLAGS_NONE);
         else
-            (void) doc_extcmd_flagstr(menuwin, efp, TRUE);
+            (void) doc_extcmd_flagstr(menuwin, (struct ext_func_tab *) 0);
 
         end_menu(menuwin, (char *) 0);
         n = select_menu(menuwin, PICK_ONE, &selected);
@@ -1873,28 +1879,29 @@ struct ext_func_tab extcmdlist[] = {
             dopramulet, IFBURIED },
     { ARMOR_SYM, "seearmor", "show the armor currently worn",
             doprarm, IFBURIED },
-    { GOLD_SYM, "seegold", "count your gold", doprgold, IFBURIED },
-    { '\0', "seenv", "show seen vectors",
-            wiz_show_seenv, IFBURIED | AUTOCOMPLETE | WIZMODECMD },
     { RING_SYM, "seerings", "show the ring(s) currently worn",
             doprring, IFBURIED },
-    { SPBOOK_SYM, "seespells", "list and reorder known spells",
-            dovspell, IFBURIED },
     { TOOL_SYM, "seetools", "show the tools currently in use",
             doprtool, IFBURIED },
-    { '^', "seetrap", "show the type of adjacent trap", doidtrap, IFBURIED },
     { WEAPON_SYM, "seeweapon", "show the weapon currently wielded",
             doprwep, IFBURIED },
-    { '!', "shell", "do a shell escape",
+    { '!', "shell", "leave game to enter a sub-shell ('exit' to come back)",
             dosh_core, IFBURIED | GENERALCMD
 #ifndef SHELL
                        | CMD_NOT_AVAILABLE
 #endif /* SHELL */
     },
+    /* $ is like ),=,&c but is not included with *, so not called "seegold" */
+    { GOLD_SYM, "showgold", "show gold, possibly shop credit or debt",
+            doprgold, IFBURIED },
+    { SPBOOK_SYM, "showspells", "list and reorder known spells",
+            dovspell, IFBURIED },
+    { '^', "showtrap", "describe an adjacent, discovered trap",
+            doidtrap, IFBURIED },
     { M('s'), "sit", "sit down", dosit, AUTOCOMPLETE },
     { '\0', "stats", "show memory statistics",
             wiz_show_stats, IFBURIED | AUTOCOMPLETE | WIZMODECMD },
-    { C('z'), "suspend", "suspend the game",
+    { C('z'), "suspend", "push game to background ('fg' to come back)",
             dosuspend_core, IFBURIED | GENERALCMD
 #ifndef SUSPEND
                             | CMD_NOT_AVAILABLE
@@ -1924,7 +1931,8 @@ struct ext_func_tab extcmdlist[] = {
     { M('v'), "version",
             "list compile time options for this version of NetHack",
             doextversion, IFBURIED | AUTOCOMPLETE | GENERALCMD },
-    { 'v', "versionshort", "show version", doversion, IFBURIED | GENERALCMD },
+    { 'v', "versionshort", "show version and date/time program was built",
+            doversion, IFBURIED | GENERALCMD },
     { '\0', "vision", "show vision array",
             wiz_show_vision, IFBURIED | AUTOCOMPLETE | WIZMODECMD },
     { '.', "wait", "rest one move while doing nothing",
@@ -1963,6 +1971,8 @@ struct ext_func_tab extcmdlist[] = {
             wiz_map, IFBURIED | AUTOCOMPLETE | WIZMODECMD },
     { '\0', "wizrumorcheck", "verify rumor boundaries",
             wiz_rumor_check, IFBURIED | AUTOCOMPLETE | WIZMODECMD },
+    { '\0', "wizseenv", "show map locations' seen vectors",
+            wiz_show_seenv, IFBURIED | AUTOCOMPLETE | WIZMODECMD },
     { '\0', "wizsmell", "smell monster",
             wiz_smell, IFBURIED | AUTOCOMPLETE | WIZMODECMD },
     { '\0', "wizwhere", "show locations of special levels",

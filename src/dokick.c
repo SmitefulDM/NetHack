@@ -1,4 +1,4 @@
-/* NetHack 3.7	dokick.c	$NHDT-Date: 1606009001 2020/11/22 01:36:41 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.159 $ */
+/* NetHack 3.7	dokick.c	$NHDT-Date: 1606343576 2020/11/25 22:32:56 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.160 $ */
 /* Copyright (c) Izchak Miller, Mike Stephenson, Steve Linhart, 1989. */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -18,7 +18,7 @@ static void FDECL(kick_monster, (struct monst *, XCHAR_P, XCHAR_P));
 static int FDECL(kick_object, (XCHAR_P, XCHAR_P, char *));
 static int FDECL(really_kick_object, (XCHAR_P, XCHAR_P));
 static char *FDECL(kickstr, (char *, const char *));
-static void FDECL(otransit_msg, (struct obj *, BOOLEAN_P, long));
+static void FDECL(otransit_msg, (struct obj *, BOOLEAN_P, BOOLEAN_P, long));
 static void FDECL(drop_to, (coord *, SCHAR_P, XCHAR_P, XCHAR_P));
 
 static const char kick_passes_thru[] = "kick passes harmlessly through";
@@ -508,7 +508,8 @@ xchar x, y;
     }
 
     if (!uarmf && g.kickedobj->otyp == CORPSE
-        && touch_petrifies(&mons[g.kickedobj->corpsenm]) && !Stone_resistance) {
+        && touch_petrifies(&mons[g.kickedobj->corpsenm])
+        && !Stone_resistance) {
         You("kick %s with your bare %s.",
             corpse_xname(g.kickedobj, (const char *) 0, CXN_PFX_THE),
             makeplural(body_part(FOOT)));
@@ -705,12 +706,23 @@ xchar x, y;
         else
             (void) stolen_value(g.kickedobj, x, y, (boolean) shkp->mpeaceful,
                                 FALSE);
+        costly = FALSE; /* already billed */
     }
 
     if (flooreffects(g.kickedobj, g.bhitpos.x, g.bhitpos.y, "fall"))
         return 1;
-    if (g.kickedobj->unpaid)
-        subfrombill(g.kickedobj, shkp);
+    if (costly) {
+        long gt = 0L;
+
+        /* costly + landed outside shop handled above; must be inside shop */
+        if (g.kickedobj->unpaid)
+            subfrombill(g.kickedobj, shkp);
+
+        /* if billed for contained gold during kick, get a refund now */
+        if (Has_contents(g.kickedobj)
+            && (gt = contained_gold(g.kickedobj, TRUE)) > 0L)
+            donate_gold(gt, shkp, FALSE);
+    }
     place_object(g.kickedobj, g.bhitpos.x, g.bhitpos.y);
     stackobj(g.kickedobj);
     newsym(g.kickedobj->ox, g.kickedobj->oy);
@@ -1498,7 +1510,7 @@ boolean shop_floor_obj;
     coord cc;
     struct obj *obj;
     struct trap *t;
-    boolean nodrop, unpaid, container, impact = FALSE;
+    boolean nodrop, unpaid, container, impact = FALSE, chainthere = FALSE;
     long n = 0L;
 
     if (!otmp)
@@ -1518,9 +1530,12 @@ boolean shop_floor_obj;
     unpaid = is_unpaid(otmp);
 
     if (OBJ_AT(x, y)) {
-        for (obj = g.level.objects[x][y]; obj; obj = obj->nexthere)
-            if (obj != otmp)
+        for (obj = g.level.objects[x][y]; obj; obj = obj->nexthere) {
+            if (obj == uchain)
+                chainthere = TRUE;
+            else if (obj != otmp)
                 n += obj->quan;
+        }
         if (n)
             impact = TRUE;
     }
@@ -1534,7 +1549,7 @@ boolean shop_floor_obj;
     }
 
     if (cansee(x, y))
-        otransit_msg(otmp, nodrop, n);
+        otransit_msg(otmp, nodrop, chainthere, n);
 
     if (nodrop) {
         if (impact)
@@ -1653,7 +1668,7 @@ boolean near_hero;
         case MIGR_SSTAIRS:
             if ((stway = stairway_find_from(&fromdlev, isladder)) != 0) {
                 nx = stway->sx;
-                nx = stway->sy;
+                ny = stway->sy;
             }
             break;
         case MIGR_WITH_HERO:
@@ -1723,7 +1738,8 @@ unsigned long deliverflags;
             continue;
 
         if (otmp->migr_species != NON_PM
-            && (mtmp->data->mflags2 & DELIVER_PM) == (unsigned) otmp->migr_species) {
+            && ((mtmp->data->mflags2 & DELIVER_PM)
+                == (unsigned) otmp->migr_species)) {
             obj_extract_self(otmp);
             otmp->owornmask = 0L;
             otmp->ox = otmp->oy = 0;
@@ -1753,9 +1769,9 @@ unsigned long deliverflags;
 }
 
 static void
-otransit_msg(otmp, nodrop, num)
+otransit_msg(otmp, nodrop, chainthere, num)
 register struct obj *otmp;
-register boolean nodrop;
+boolean nodrop, chainthere;
 long num;
 {
     char *optr = 0, obuf[BUFSZ], xbuf[BUFSZ];
@@ -1769,15 +1785,20 @@ long num;
     }
     Strcpy(obuf, optr);
 
-    if (num) { /* means: other objects are impacted */
+    if (num || chainthere) {
         /* As of 3.6.2: use a separate buffer for the suffix to avoid risk of
            overrunning obuf[] (let pline() handle truncation if necessary) */
-        Sprintf(xbuf, " %s %s object%s", otense(otmp, "hit"),
-                (num == 1L) ? "another" : "other", (num > 1L) ? "s" : "");
+        if (num) { /* means: other objects are impacted */
+            Sprintf(xbuf, " %s %s object%s", otense(otmp, "hit"),
+                    (num == 1L) ? "another" : "other", (num > 1L) ? "s" : "");
+        } else { /* chain-only msg */
+            Sprintf(xbuf, " %s your chain", otense(otmp, "rattle"));
+        }
         if (nodrop)
             Sprintf(eos(xbuf), ".");
         else
-            Sprintf(eos(xbuf), " and %s %s.", otense(otmp, "fall"), g.gate_str);
+            Sprintf(eos(xbuf), " and %s %s.",
+                    otense(otmp, "fall"), g.gate_str);
         pline("%s%s", obuf, xbuf);
     } else if (!nodrop)
         pline("%s %s %s.", obuf, otense(otmp, "fall"), g.gate_str);

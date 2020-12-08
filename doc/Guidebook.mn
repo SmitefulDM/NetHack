@@ -1,4 +1,4 @@
-.\" $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.398 $ $NHDT-Date: 1605618309 2020/11/17 13:05:09 $
+.\" $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.402 $ $NHDT-Date: 1606781766 2020/12/01 00:16:06 $
 .\"
 .\" This is an excerpt from the 'roff' man page from the 'groff' package.
 .\" Guidebook.mn currently does *not* fully adhere to these guidelines.
@@ -35,7 +35,7 @@
 .ds vr "NetHack 3.7
 .ds f0 "\*(vr
 .ds f1
-.ds f2 "November 16, 2020
+.ds f2 "November 30, 2020
 .
 .\" A note on some special characters:
 .\" \(lq = left double quote
@@ -103,7 +103,7 @@ travel, you see the ancient ruins that mark the entrance to the
 Mazes of Menace.  It is late at night, so you make camp at the entrance
 and spend the night sleeping under the open skies.  In the morning, you
 gather your gear, eat what may be your last meal outside, and enter the
-dungeon...
+dungeon....
 .
 .hn 1
 What is going on here?
@@ -1005,6 +1005,7 @@ Suspend the game
 .\" .UX: print "UNIX" now and a trademark footnote at bottom of current page;
 .\"  2nd arg (literal '(') _precedes_ it, 1st arg (quoted string) follows it
 .UX " versions with job control only)." (
+See \(lq#suspend\(rq below for more details.
 .lp :
 Look at what is here.
 .lp ;
@@ -1058,6 +1059,7 @@ Show what types of objects have been discovered.
 Show discovered types for one class of objects.
 .lp !
 Escape to a shell.
+See \(lq#shell\(rq below for more details.
 .lp #
 Perform an extended command.
 .lp ""
@@ -1388,28 +1390,28 @@ Default key is \(oq[\(cq.
 .lp "#seegold "
 Count your gold.
 Default key is \(oq$\(cq.
-.lp "#seenv   "
-Show seen vectors.
-Autocompletes.
-Debug mode only.
 .lp #seerings
 Show the ring(s) currently worn.
 Default key is \(oq=\(cq.
-.lp #seespells
-List and reorder known spells.
-Default key is \(oq+\(cq.
 .lp #seetools
 Show the tools currently in use.
 Default key is \(oq(\(cq.
-.lp "#seetrap "
-Show the type of an adjacent trap.
-Default key is \(oq\(ha\(cq. \" 'hat' (circumflex character)
 .lp #seeweapon
 Show the weapon currently wielded.
 Default key is \(oq)\(cq.
 .lp "#shell   "
-Do a shell escape.
+Do a shell escape, switching from NetHack to a subprocess.
+Can be disabled at the time the program is built.
+When enabled, access for specific users can be controlled by the system
+configuration file.
+Use the shell command \(oq\f(CRexit\fP\(cq to return to the game.
 Default key is \(oq!\(cq.
+.lp #showspells
+List and reorder known spells.
+Default key is \(oq+\(cq.
+.lp "#showtrap"
+Show the type of an adjacent trap.
+Default key is \(oq\(ha\(cq. \" 'hat' (circumflex character)
 .lp "#sit     "
 Sit down.
 Autocompletes.
@@ -1419,7 +1421,12 @@ Show memory usage statistics.
 Autocompletes.
 Debug mode only.
 .lp "#suspend "
-Suspend the game.
+Suspend the game, switching from NetHack to the terminal it was started
+from without performing save-and-exit.
+Can be disabled at the time the program is built.
+When enabled, mainly useful for \fItty\fP and \fIcurses\fP interfaces on
+.UX \. \" yields "UNIX."
+Use the shell command \(oq\f(CRfg\fP\(cq to return to the game.
 Default key is \(oq\(haZ\(cq.
 .lp "#swap    "
 Swap wielded and secondary weapons.
@@ -1564,6 +1571,10 @@ first and last false rumors.
 Also displays first, second, and last random engravings, epitaphs,
 and hallucinatory monsters.
 .lp ""
+Autocompletes.
+Debug mode only.
+.lp #wizseenv
+Show map locations' seen vectors.
 Autocompletes.
 Debug mode only.
 .lp #wizsmell
@@ -1991,6 +2002,23 @@ The
 .op run_mode
 option controls how frequently the map gets redrawn when moving more
 than one step in a single command (so when rushing, running, or traveling).
+.hn 2
+Rogue level
+.pg
+One dungeon level (occurring in mid to late teens of the main dungeon)
+is a tribute to the ancestor game \fIhack\fP's inspiration \fIrogue\fP.
+.pg
+It is usually displayed differently from other levels: possibly in
+characters instead of tiles, or without line-drawing symbols if already
+in characters; also, gold is shown as \f(CR*\fP rather than \f(CR$\fP
+and stairs are shown as \f(CR%\fP rather than \f(CR<\fP and \f(CR>\fP.
+There are some minor differences in actual game play: doorways lack
+doors; a scroll, wand, or spell of light used in a room lights up the
+whole room rather than within a radius around your character.
+And monsters represented by lower-case letters aren't randomly
+generated on the rogue level.
+.pg
+The slight strangeness of this level is a feature, not a bug....
 .
 .hn 1
 Monsters
@@ -2441,7 +2469,7 @@ NetHack.
 Here is a list of the armor class values provided by suits of armor:
 .
 .\" Replace the old one suit per line table with a more condensed one.
-.\" AC4 and AC7 have been split into two lines to accomodate plain text
+.\" AC4 and AC7 have been split into two lines to accommodate plain text
 .\" output (Guidebook.txt).  AC4 needs it to reduce overall width; after
 .\" that, AC7 became the longest and the table looks better by shortening
 .\" it to get the second column (number) closer to the text on most lines.
@@ -4172,7 +4200,19 @@ Where to align or place the message window (top, bottom, left, or right)
 .lp align_status
 Where to align or place the status window (top, bottom, left, or right).
 .lp ascii_map
-If NetHack can, it should display an ascii character map if it can.
+.hw DECgraphics IBMgraphics \" don't hyphenate these
+If NetHack can, it should display the map using simple
+characters (letters and punctuation) rather than \fItiles\fP graphics.
+In some cases, characters can be augmented with line-drawing symbols;
+use the
+.op symset
+option to select a symbol set such as \fIDECgraphics\fP
+or \fIIBMgraphics\fP if your display supports them.
+Setting
+.op ascii_map
+to \fITrue\fP forces
+.op tiled_map
+to be \fIFalse\fP.
 .lp color
 If NetHack can, it should display color if it can for different monsters,
 objects, and dungeon features.
@@ -4275,14 +4315,21 @@ Number of columns and rows to use for the display.
 Curses will attempt to resize to the values specified but will settle
 for smaller sizes if they are too big.
 Default is the current window size.
-.lp tiled_map
-If NetHack can, it should display a tiled map if it can.
 .lp tile_file
 Specify the name of an alternative tile file to override the default.
 .lp tile_height
 Specify the preferred height of each tile in a tile capable port.
 .lp tile_width
 Specify the preferred width of each tile in a tile capable port
+.lp tiled_map
+If NetHack can, it should display the map using \fItiles\fP graphics
+rather than simple characters (letters and punctuation, possibly
+augmented by line-drawing symbols).
+Setting
+.op tiled_map
+to \fITrue\fP forces
+.op ascii_map
+to be \fIFalse\fP.
 .lp use_darkgray
 Use bold black instead of blue for black glyphs (TTY only).
 .lp use_inverse
